@@ -20,10 +20,19 @@ A lightweight, cross-platform desktop serial monitor built for ESP32 development
 
 ### 2. Multi-Device Support
 
-- Open multiple serial connections simultaneously
+- Open multiple serial connections simultaneously; no hard limit on tab count
 - Each connection displayed in its own **tab**
-- Tabs show port name and connection status
+- Tabs show port name and connection status dot (green=connected, yellow=reconnecting, red=disconnected)
+- Tabs appear in the order they were opened (fixed order; drag-to-reorder deferred to future version)
 - Independent settings (baud rate, timestamps, filters) per tab
+- **New tab ("+" button):** Opens the connect form to select port and baud rate
+- **Port dropdown:** Already-connected ports are shown but disabled with a "(connected)" label
+- **Close tab (× button):** Disconnects immediately without confirmation
+- **Empty state:** When the last tab is closed, show a splash screen with the connect form automatically displayed
+- **Keyboard shortcuts:**
+  - `Ctrl+Shift+T` — Open new connection form
+  - `Ctrl+Tab` — Switch to next tab
+  - `Ctrl+Shift+Tab` — Switch to previous tab
 
 ### 3. Monitor Display
 
@@ -93,7 +102,7 @@ A lightweight, cross-platform desktop serial monitor built for ESP32 development
 | `connect(port, baud_rate)` | Opens a serial connection, starts streaming data via events |
 | `disconnect(port)` | Closes the connection |
 | `send(port, data, line_ending)` | Sends a string to the device |
-| `start_log(port, file_path)` | Begins logging output to a file |
+| `start_log(port, file_path, timestamps)` | Begins logging output to a file (with optional timestamps) |
 | `stop_log(port)` | Stops logging |
 
 Serial data is streamed from Rust to the frontend using **Tauri events** (not polling).
