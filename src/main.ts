@@ -124,6 +124,7 @@ function init(): void {
 }
 
 function showConnectPanel(): void {
+  tabManager.hideAll();
   connectPanel.style.display = "flex";
   refreshPorts();
 }
@@ -155,17 +156,25 @@ function updatePortDropdown(ports: PortInfo[]): void {
     return;
   }
 
-  connectBtn.disabled = false;
+  let hasAvailable = false;
 
   for (const p of ports) {
     const opt = document.createElement("option");
     opt.value = p.name;
-    opt.textContent = `${p.name} - ${p.description}`;
+    if (tabManager.hasConnection(p.name)) {
+      opt.textContent = `${p.name} - ${p.description} (connected)`;
+      opt.disabled = true;
+    } else {
+      opt.textContent = `${p.name} - ${p.description}`;
+      hasAvailable = true;
+    }
     portSelect.appendChild(opt);
   }
 
-  // Restore previous selection if still available
-  if (ports.some((p) => p.name === currentValue)) {
+  connectBtn.disabled = !hasAvailable;
+
+  // Restore previous selection if still available and not connected
+  if (ports.some((p) => p.name === currentValue) && !tabManager.hasConnection(currentValue)) {
     portSelect.value = currentValue;
   }
 }
@@ -224,6 +233,18 @@ function handleGlobalKeydown(e: KeyboardEvent): void {
   if (e.ctrlKey && e.shiftKey && e.key === "T") {
     e.preventDefault();
     showConnectPanel();
+  }
+  // Ctrl+Tab: Next tab
+  if (e.ctrlKey && !e.shiftKey && e.key === "Tab") {
+    e.preventDefault();
+    tabManager.switchNext();
+    hideConnectPanel();
+  }
+  // Ctrl+Shift+Tab: Previous tab
+  if (e.ctrlKey && e.shiftKey && e.key === "Tab") {
+    e.preventDefault();
+    tabManager.switchPrev();
+    hideConnectPanel();
   }
   // Ctrl+L: Clear active terminal
   if (e.ctrlKey && e.key === "l") {

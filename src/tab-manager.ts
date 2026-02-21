@@ -122,6 +122,31 @@ export class TabManager {
     return this.tabs.has(port);
   }
 
+  hideAll(): void {
+    for (const [key, conn] of this.tabs) {
+      conn.hide();
+      const tab = this.tabBar.querySelector(`.tab[data-port="${key}"]`);
+      tab?.classList.remove("tab-active");
+    }
+    this.activeTab = null;
+  }
+
+  switchNext(): void {
+    const keys = [...this.tabs.keys()];
+    if (keys.length === 0) return;
+    const idx = this.activeTab ? keys.indexOf(this.activeTab) : -1;
+    const next = keys[(idx + 1) % keys.length];
+    this.switchTo(next);
+  }
+
+  switchPrev(): void {
+    const keys = [...this.tabs.keys()];
+    if (keys.length === 0) return;
+    const idx = this.activeTab ? keys.indexOf(this.activeTab) : 0;
+    const prev = keys[(idx - 1 + keys.length) % keys.length];
+    this.switchTo(prev);
+  }
+
   private updateTabLabel(port: string, status: ConnectionStatus): void {
     const tab = this.tabBar.querySelector(`.tab[data-port="${port}"]`);
     if (!tab) return;
