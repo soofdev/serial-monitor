@@ -45,6 +45,26 @@ jobs:
       - name: Build Tauri app
         run: npm run tauri build
 
+      - name: Ad-hoc sign macOS app and re-create DMG
+        if: matrix.platform == 'macos-latest'
+        run: |
+          # Sign the .app bundle
+          APP=$(find src-tauri/target/release/bundle/macos -name "*.app" -maxdepth 1 | head -1)
+          codesign --force --deep --sign - "$APP"
+          # Re-create the DMG with the signed app
+          DMG=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -1)
+          APPNAME=$(basename "$APP")
+          DMGNAME=$(basename "$DMG")
+          TMPDIR=$(mktemp -d)
+          hdiutil create -size 100m -fs HFS+ -volname "${APPNAME%.app}" "$TMPDIR/temp.dmg"
+          hdiutil attach "$TMPDIR/temp.dmg" -mountpoint "$TMPDIR/mnt"
+          cp -R "$APP" "$TMPDIR/mnt/"
+          ln -s /Applications "$TMPDIR/mnt/Applications"
+          hdiutil detach "$TMPDIR/mnt"
+          rm -f "$DMG"
+          hdiutil convert "$TMPDIR/temp.dmg" -format UDZO -o "$DMG"
+          rm -rf "$TMPDIR"
+
       - name: List bundle output
         shell: bash
         run: find src-tauri/target/release/bundle -type f | head -50
