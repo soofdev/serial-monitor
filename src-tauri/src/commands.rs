@@ -17,11 +17,16 @@ pub async fn connect(
     manager: State<'_, Arc<ConnectionManager>>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    // Check if already connected
+    // Check if already connected; remove stale entries whose read loop has exited
     {
-        let conns = manager.connections.lock().map_err(|e| e.to_string())?;
+        let mut conns = manager.connections.lock().map_err(|e| e.to_string())?;
         if conns.contains_key(&port) {
-            return Err(format!("Already connected to {}", port));
+            let is_stale = conns.get(&port).map_or(false, |c| c.shutdown_tx.is_closed());
+            if is_stale {
+                conns.remove(&port);
+            } else {
+                return Err(format!("Already connected to {}", port));
+            }
         }
     }
 

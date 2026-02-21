@@ -161,6 +161,11 @@ export class Connection {
   }
 
   private async listenForDisconnect(): Promise<void> {
+    // Clean up previous listener to prevent accumulation
+    if (this.unlistenStatus) {
+      this.unlistenStatus();
+      this.unlistenStatus = null;
+    }
     this.unlistenStatus = await listen<SerialStatus>("serial-status", (event) => {
       if (event.payload.port === this.port && event.payload.status === "disconnected") {
         this._status = "disconnected";
