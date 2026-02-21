@@ -29,9 +29,10 @@ export async function sendToPort(
 
 export async function startLog(
   port: string,
-  filePath: string
+  filePath: string,
+  timestamps: boolean
 ): Promise<void> {
-  return invoke("start_log", { port, filePath });
+  return invoke("start_log", { port, filePath, timestamps });
 }
 
 export async function stopLog(port: string): Promise<void> {

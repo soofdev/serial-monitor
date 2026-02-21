@@ -422,6 +422,13 @@ kbd {
   gap: 8px;
 }
 
+/* === Baud Rate Label === */
+.baud-rate-label {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
 /* === Status Indicator === */
 .status-indicator {
   font-size: 11px;

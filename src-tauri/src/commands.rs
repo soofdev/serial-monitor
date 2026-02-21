@@ -97,6 +97,7 @@ pub async fn send(
 pub async fn start_log(
     port: String,
     file_path: String,
+    timestamps: bool,
     manager: State<'_, Arc<ConnectionManager>>,
 ) -> Result<(), String> {
     use tokio::io::AsyncWriteExt;
@@ -123,8 +124,15 @@ pub async fn start_log(
 
         match file {
             Ok(mut f) => {
-                while let Some(line) = log_rx.recv().await {
-                    if let Err(e) = f.write_all(line.as_bytes()).await {
+                while let Some(chunk) = log_rx.recv().await {
+                    let data = if timestamps {
+                        let now = chrono::Local::now();
+                        let ts = now.format("[%H:%M:%S%.3f] ").to_string();
+                        format!("{}{}", ts, chunk)
+                    } else {
+                        chunk
+                    };
+                    if let Err(e) = f.write_all(data.as_bytes()).await {
                         eprintln!("Log write error: {}", e);
                         break;
                     }

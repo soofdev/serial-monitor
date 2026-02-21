@@ -95,6 +95,11 @@ export class Connection {
     });
     controls.appendChild(this.clearBtn);
 
+    const baudLabel = document.createElement("span");
+    baudLabel.className = "baud-rate-label";
+    baudLabel.textContent = `${this.baudRate} baud`;
+    controls.appendChild(baudLabel);
+
     this.statusIndicator = document.createElement("span");
     this.statusIndicator.className = "status-indicator";
     controls.appendChild(this.statusIndicator);
@@ -237,14 +242,22 @@ export class Connection {
 
       // Use dialog to let user pick save location
       try {
+        const { documentDir } = await import("@tauri-apps/api/path");
         const { save } = await import("@tauri-apps/plugin-dialog");
+        let defaultPath = fileName;
+        try {
+          const docsDir = await documentDir();
+          defaultPath = `${docsDir}/${fileName}`;
+        } catch (_) {
+          // Fall back to just the filename if Documents is unavailable
+        }
         const filePath = await save({
-          defaultPath: fileName,
+          defaultPath,
           filters: [{ name: "Text Files", extensions: ["txt", "log"] }],
         });
         if (!filePath) return;
 
-        await startLog(this.port, filePath);
+        await startLog(this.port, filePath, this.terminal.showTimestamps);
         this.isLogging = true;
         this.logBtn.classList.add("active");
       } catch (e) {

@@ -49,7 +49,7 @@ A lightweight, cross-platform desktop serial monitor built for ESP32 development
 ### 6. Auto-Reconnect
 
 - Detect when a device disconnects (USB unplug, ESP32 reset)
-- Automatically attempt to reconnect at a configurable interval
+- Automatically attempt to reconnect at a regular interval (1 second)
 - Visual indicator showing reconnection status
 - Reconnect preserves existing monitor output
 
