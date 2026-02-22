@@ -10,6 +10,7 @@
     "core:event:allow-listen",
     "dialog:default",
     "dialog:allow-save",
+    "dialog:allow-open",
     "core:path:default"
   ]
 }

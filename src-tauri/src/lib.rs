@@ -1,4 +1,5 @@
 mod commands;
+mod flash;
 mod serial;
 mod state;
 
@@ -19,6 +20,8 @@ pub fn run() {
             commands::send,
             commands::start_log,
             commands::stop_log,
+            commands::flash_firmware,
+            commands::detect_chip,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

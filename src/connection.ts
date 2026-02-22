@@ -2,6 +2,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Terminal } from "./terminal";
 import { CommandInput } from "./command-input";
 import { FilterInput } from "./filter";
+import { FlashPanel } from "./flash-panel";
 import { connectPort, disconnectPort, sendToPort, startLog, stopLog } from "./serial-api";
 import type { SerialData, SerialStatus } from "./types";
 
@@ -20,6 +21,8 @@ export class Connection {
   private autoScrollBtn: HTMLButtonElement;
   private timestampsBtn: HTMLButtonElement;
   private logBtn: HTMLButtonElement;
+  private flashBtn: HTMLButtonElement;
+  private flashPanel: FlashPanel;
   private clearBtn: HTMLButtonElement;
 
   private _status: ConnectionStatus = "disconnected";
@@ -57,7 +60,16 @@ export class Connection {
     this.logBtn = this.createToolbarButton("Log", () => this.toggleLog());
     toolbar.appendChild(this.logBtn);
 
+    this.flashBtn = this.createToolbarButton("Flash", () => this.openFlashPanel());
+    toolbar.appendChild(this.flashBtn);
+
     this.panel.appendChild(toolbar);
+
+    // Flash panel overlay (appended to connection panel)
+    this.flashPanel = new FlashPanel();
+    this.flashPanel.onFlashComplete = () => this.onFlashDone();
+    this.flashPanel.onClose = () => this.onFlashPanelClosed();
+    this.panel.appendChild(this.flashPanel.overlay);
 
     // Terminal
     this.terminalContainer = document.createElement("div");
@@ -270,6 +282,44 @@ export class Connection {
     if (!this.isLogging) return;
     // Logging data is forwarded by the Rust read loop via log_tx when active.
     // Frontend just needs to call startLog/stopLog to enable/disable it.
+  }
+
+  private openFlashPanel(): void {
+    // Pause auto-reconnect during flash
+    this.reconnectEnabled = false;
+    this.clearReconnectTimer();
+    this.flashPanel.show(this.port, this.baudRate);
+  }
+
+  private async onFlashDone(): Promise<void> {
+    this.terminal.appendData("\r\n[Flash complete — reconnecting...]\r\n");
+    this.flashPanel.hide();
+    this.reconnectEnabled = true;
+    try {
+      await connectPort(this.port, this.baudRate, (data: SerialData) => {
+        this.terminal.appendData(data.data);
+        this.forwardToLog(data.data);
+      });
+      this._status = "connected";
+      this.reconnectAttempts = 0;
+      this.updateStatusUI();
+      this.onStatusChange?.("connected");
+      this.listenForDisconnect();
+    } catch (_) {
+      this._status = "disconnected";
+      this.updateStatusUI();
+      this.onStatusChange?.("disconnected");
+      this.showToast("Flash succeeded but reconnect failed. Try reconnecting manually.", "error");
+    }
+  }
+
+  private onFlashPanelClosed(): void {
+    // Re-enable auto-reconnect when panel is closed without flashing
+    this.reconnectEnabled = true;
+    // If we're disconnected (flash happened but user closed before reconnect), try reconnecting
+    if (this._status === "disconnected" || this._status === "reconnecting") {
+      this.startReconnect();
+    }
   }
 
   private createToolbarButton(label: string, onClick: () => void): HTMLButtonElement {

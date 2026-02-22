@@ -1,3 +1,4 @@
+use crate::flash::{self, ChipInfo, FlashProgress, TauriProgressCallbacks};
 use crate::serial::{self, PortInfo, SerialData};
 use crate::state::{ConnectionManager, SerialConnection};
 use std::sync::{Arc, Mutex};
@@ -156,4 +157,42 @@ pub fn stop_log(port: String, manager: State<'_, Arc<ConnectionManager>>) -> Res
     let mut guard = conn.log_tx.lock().map_err(|e| e.to_string())?;
     *guard = None; // Dropping the sender closes the channel and the file task
     Ok(())
+}
+
+#[tauri::command]
+pub async fn flash_firmware(
+    port: String,
+    file_path: String,
+    flash_addr: u32,
+    baud_rate: Option<u32>,
+    on_progress: Channel<FlashProgress>,
+    manager: State<'_, Arc<ConnectionManager>>,
+) -> Result<(), String> {
+    // Disconnect the active serial connection if present
+    {
+        let mut conns = manager.connections.lock().map_err(|e| e.to_string())?;
+        if let Some(conn) = conns.remove(&port) {
+            let _ = conn.shutdown_tx.try_send(());
+            drop(conn);
+        }
+    }
+
+    // Let the OS release the port
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+    // Run flash in a blocking task (espflash is synchronous)
+    let port_clone = port.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut progress = TauriProgressCallbacks::new(on_progress);
+        flash::flash_binary(&port_clone, &file_path, flash_addr, baud_rate, &mut progress)
+    })
+    .await
+    .map_err(|e| format!("Flash task panicked: {}", e))?
+}
+
+#[tauri::command]
+pub async fn detect_chip(port: String) -> Result<ChipInfo, String> {
+    tokio::task::spawn_blocking(move || flash::detect_chip_info(&port))
+        .await
+        .map_err(|e| format!("Detection task panicked: {}", e))?
 }
