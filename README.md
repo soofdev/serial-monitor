@@ -86,3 +86,15 @@ src-tauri/              # Rust backend
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+## Screenshots
+
+<img width="902" height="699" alt="Screenshot 2026-02-22 at 5 35 11 PM" src="https://github.com/user-attachments/assets/70e8aeb6-74a8-426b-8078-225978e9a6a7" />
+
+<img width="894" height="696" alt="Screenshot 2026-02-22 at 5 35 44 PM" src="https://github.com/user-attachments/assets/1ae1878f-dadc-4f20-be04-af21bc138c58" />
+
+<img width="895" height="697" alt="Screenshot 2026-02-22 at 5 36 26 PM" src="https://github.com/user-attachments/assets/9fa8a95e-dc6e-41a0-bd4b-7c707de2170a" />
+
+<img width="897" height="697" alt="Screenshot 2026-02-22 at 5 36 36 PM" src="https://github.com/user-attachments/assets/48279229-8bd7-4a7f-b738-17b1bce8636e" />
+
+<img width="550" height="450" alt="Screenshot 2026-02-22 at 3 04 10 PM" src="https://github.com/user-attachments/assets/0fd3e4d8-7a51-4dba-a796-dfd364d85598" />
