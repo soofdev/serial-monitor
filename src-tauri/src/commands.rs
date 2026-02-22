@@ -1,4 +1,4 @@
-use crate::flash::{self, ChipInfo, FlashProgress, TauriProgressCallbacks};
+use crate::flash::{self, ChipInfo, FlashProgress, IdfProjectInfo, MultiSegmentProgress, TauriProgressCallbacks};
 use crate::serial::{self, PortInfo, SerialData};
 use crate::state::{ConnectionManager, SerialConnection};
 use std::sync::{Arc, Mutex};
@@ -185,6 +185,47 @@ pub async fn flash_firmware(
     tokio::task::spawn_blocking(move || {
         let mut progress = TauriProgressCallbacks::new(on_progress);
         flash::flash_binary(&port_clone, &file_path, flash_addr, baud_rate, &mut progress)
+    })
+    .await
+    .map_err(|e| format!("Flash task panicked: {}", e))?
+}
+
+#[tauri::command]
+pub async fn parse_idf_project(build_dir: String) -> Result<IdfProjectInfo, String> {
+    flash::parse_idf_flasher_args(&build_dir)
+}
+
+#[tauri::command]
+pub async fn flash_idf_project(
+    port: String,
+    build_dir: String,
+    app_only: bool,
+    baud_rate: Option<u32>,
+    on_progress: Channel<FlashProgress>,
+    manager: State<'_, Arc<ConnectionManager>>,
+) -> Result<(), String> {
+    // Disconnect the active serial connection if present
+    {
+        let mut conns = manager.connections.lock().map_err(|e| e.to_string())?;
+        if let Some(conn) = conns.remove(&port) {
+            let _ = conn.shutdown_tx.try_send(());
+            drop(conn);
+        }
+    }
+
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+    let port_clone = port.clone();
+    tokio::task::spawn_blocking(move || {
+        // Determine segment count for progress tracking
+        let project = flash::parse_idf_flasher_args(&build_dir)?;
+        let seg_count = if app_only {
+            project.segments.iter().filter(|s| s.name == "Application").count()
+        } else {
+            project.segments.len()
+        };
+        let mut progress = MultiSegmentProgress::new(on_progress, seg_count);
+        flash::flash_idf_project(&port_clone, &build_dir, app_only, baud_rate, &mut progress)
     })
     .await
     .map_err(|e| format!("Flash task panicked: {}", e))?

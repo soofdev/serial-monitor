@@ -520,8 +520,10 @@ kbd {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 20px;
-  width: 420px;
+  width: 480px;
   max-width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -681,4 +683,104 @@ kbd {
 
 .flash-status-success {
   color: var(--green);
+}
+
+/* Flash mode tabs */
+.flash-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.flash-tab {
+  flex: 1;
+  padding: 5px 10px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.flash-tab:hover {
+  color: var(--text-secondary);
+}
+
+.flash-tab-active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.flash-mode-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* IDF project info */
+.flash-project-info {
+  font-size: 11px;
+  color: var(--accent);
+  padding: 4px 0;
+}
+
+.flash-segments-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.flash-segment-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.flash-segment-row:hover {
+  background: var(--bg-hover);
+}
+
+.flash-seg-name {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.flash-seg-offset {
+  color: var(--yellow);
+  font-family: var(--font-mono);
+  width: 70px;
+  text-align: right;
+}
+
+.flash-seg-size {
+  color: var(--text-muted);
+  width: 65px;
+  text-align: right;
+}
+
+.flash-option-row {
+  padding: 4px 0;
+}
+
+.flash-checkbox-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  margin-left: 6px;
+}
+
+#flash-app-only {
+  accent-color: var(--accent);
 }

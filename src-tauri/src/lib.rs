@@ -21,6 +21,8 @@ pub fn run() {
             commands::start_log,
             commands::stop_log,
             commands::flash_firmware,
+            commands::parse_idf_project,
+            commands::flash_idf_project,
             commands::detect_chip,
         ])
         .run(tauri::generate_context!())
