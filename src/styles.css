@@ -785,6 +785,129 @@ kbd {
   accent-color: var(--accent);
 }
 
+/* === Pin Monitor: layout === */
+.connection-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pins-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 320px;
+  min-width: 240px;
+  max-width: 480px;
+  border-left: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.pins-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.pins-board-name {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pins-board-select {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.pins-board-select:hover {
+  background: var(--bg-hover);
+}
+
+.pins-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.pins-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pins-legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+
+.pins-legend-swatch.legend-high {
+  background: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 4px var(--green);
+}
+.pins-legend-swatch.legend-low {
+  background: #1f3a2a;
+  border-color: #2e5a3f;
+}
+.pins-legend-swatch.legend-unknown {
+  background: var(--bg-hover);
+}
+.pins-legend-swatch.legend-power {
+  background: var(--red);
+  border-color: var(--red);
+}
+.pins-legend-swatch.legend-ground {
+  background: #313244;
+}
+.pins-legend-swatch.legend-reset {
+  background: var(--yellow);
+  border-color: var(--yellow);
+}
+
+.pins-protocol-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pins-protocol-toggle input {
+  accent-color: var(--accent);
+}
+
+.pins-board-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* === Pin Monitor / Board View === */
 .board-view {
   position: relative;
@@ -793,7 +916,6 @@ kbd {
   min-height: 0;
   overflow: auto;
   background: var(--bg-secondary);
-  border-left: 1px solid var(--border);
   padding: 12px;
 }
 
