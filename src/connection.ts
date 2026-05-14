@@ -5,6 +5,10 @@ import { FilterInput } from "./filter";
 import { FlashPanel } from "./flash-panel";
 import { connectPort, disconnectPort, sendToPort, startLog, stopLog } from "./serial-api";
 import type { SerialData, SerialStatus } from "./types";
+import { PinStore } from "./pin-monitor/store";
+import { PinInterceptor } from "./pin-monitor/interceptor";
+import { BoardView } from "./pin-monitor/board-view";
+import { BOARDS, DEFAULT_BOARD, findBoard } from "./pin-monitor/boards";
 
 export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
 
@@ -22,8 +26,17 @@ export class Connection {
   private timestampsBtn: HTMLButtonElement;
   private logBtn: HTMLButtonElement;
   private flashBtn: HTMLButtonElement;
+  private pinsBtn: HTMLButtonElement;
   private flashPanel: FlashPanel;
   private clearBtn: HTMLButtonElement;
+
+  private pinStore: PinStore;
+  private pinInterceptor: PinInterceptor;
+  private pinsPanel: HTMLElement;
+  private boardContainer!: HTMLElement;
+  private boardView: BoardView | null = null;
+  private showProtocolCheckbox: HTMLInputElement;
+  private pinsOpen = false;
 
   private _status: ConnectionStatus = "disconnected";
   private reconnectEnabled = true;
@@ -63,6 +76,9 @@ export class Connection {
     this.flashBtn = this.createToolbarButton("Flash", () => this.openFlashPanel());
     toolbar.appendChild(this.flashBtn);
 
+    this.pinsBtn = this.createToolbarButton("Pins", () => this.togglePins());
+    toolbar.appendChild(this.pinsBtn);
+
     this.panel.appendChild(toolbar);
 
     // Flash panel overlay (appended to connection panel)
@@ -71,11 +87,63 @@ export class Connection {
     this.flashPanel.onClose = () => this.onFlashPanelClosed();
     this.panel.appendChild(this.flashPanel.overlay);
 
-    // Terminal
+    // Main area: terminal on left, pins panel on right (when toggled)
+    const mainArea = document.createElement("div");
+    mainArea.className = "connection-main";
+
     this.terminalContainer = document.createElement("div");
     this.terminalContainer.className = "terminal-output";
-    this.panel.appendChild(this.terminalContainer);
+    mainArea.appendChild(this.terminalContainer);
     this.terminal = new Terminal(this.terminalContainer);
+
+    // Pin monitor wiring
+    this.pinStore = new PinStore();
+    this.pinInterceptor = new PinInterceptor(this.pinStore);
+
+    this.pinsPanel = document.createElement("div");
+    this.pinsPanel.className = "pins-panel";
+    this.pinsPanel.style.display = "none";
+
+    const pinsHeader = document.createElement("div");
+    pinsHeader.className = "pins-header";
+
+    const boardSelect = document.createElement("select");
+    boardSelect.className = "pins-board-select";
+    for (const b of BOARDS) {
+      const opt = document.createElement("option");
+      opt.value = b.id;
+      opt.textContent = b.name;
+      boardSelect.appendChild(opt);
+    }
+    boardSelect.value = DEFAULT_BOARD.id;
+    boardSelect.addEventListener("change", () => {
+      const next = findBoard(boardSelect.value);
+      if (next && this.boardView) this.boardView.setBoard(next);
+    });
+    pinsHeader.appendChild(boardSelect);
+
+    const protocolLabel = document.createElement("label");
+    protocolLabel.className = "pins-protocol-toggle";
+    this.showProtocolCheckbox = document.createElement("input");
+    this.showProtocolCheckbox.type = "checkbox";
+    this.showProtocolCheckbox.addEventListener("change", () => {
+      this.pinInterceptor.showProtocol = this.showProtocolCheckbox.checked;
+    });
+    protocolLabel.appendChild(this.showProtocolCheckbox);
+    protocolLabel.appendChild(document.createTextNode(" Show pin protocol"));
+    pinsHeader.appendChild(protocolLabel);
+
+    this.pinsPanel.appendChild(pinsHeader);
+
+    const boardContainer = document.createElement("div");
+    boardContainer.className = "pins-board-container";
+    this.pinsPanel.appendChild(boardContainer);
+    this.boardContainer = boardContainer;
+
+    this.pinsPanel.appendChild(this.createLegend());
+
+    mainArea.appendChild(this.pinsPanel);
+    this.panel.appendChild(mainArea);
 
     // Bottom bar
     const bottomBar = document.createElement("div");
@@ -124,12 +192,24 @@ export class Connection {
     return this._status;
   }
 
+  private handleIncomingData = (data: SerialData): void => {
+    const forTerminal = this.pinInterceptor.process(data.data);
+    if (forTerminal.length > 0) this.terminal.appendData(forTerminal);
+    this.forwardToLog(data.data);
+  };
+
+  private togglePins(): void {
+    this.pinsOpen = !this.pinsOpen;
+    this.pinsBtn.classList.toggle("active", this.pinsOpen);
+    this.pinsPanel.style.display = this.pinsOpen ? "flex" : "none";
+    if (this.pinsOpen && !this.boardView) {
+      this.boardView = new BoardView(this.boardContainer, this.pinStore, DEFAULT_BOARD);
+    }
+  }
+
   async connect(): Promise<void> {
     try {
-      await connectPort(this.port, this.baudRate, (data: SerialData) => {
-        this.terminal.appendData(data.data);
-        this.forwardToLog(data.data);
-      });
+      await connectPort(this.port, this.baudRate, this.handleIncomingData);
       this._status = "connected";
       this.reconnectAttempts = 0;
       this.updateStatusUI();
@@ -210,10 +290,7 @@ export class Connection {
     this.reconnectTimer = setTimeout(async () => {
       this.reconnectAttempts++;
       try {
-        await connectPort(this.port, this.baudRate, (data: SerialData) => {
-          this.terminal.appendData(data.data);
-          this.forwardToLog(data.data);
-        });
+        await connectPort(this.port, this.baudRate, this.handleIncomingData);
         this._status = "connected";
         this.reconnectAttempts = 0;
         this.updateStatusUI();
@@ -296,10 +373,7 @@ export class Connection {
     this.flashPanel.hide();
     this.reconnectEnabled = true;
     try {
-      await connectPort(this.port, this.baudRate, (data: SerialData) => {
-        this.terminal.appendData(data.data);
-        this.forwardToLog(data.data);
-      });
+      await connectPort(this.port, this.baudRate, this.handleIncomingData);
       this._status = "connected";
       this.reconnectAttempts = 0;
       this.updateStatusUI();
@@ -320,6 +394,29 @@ export class Connection {
     if (this._status === "disconnected" || this._status === "reconnecting") {
       this.startReconnect();
     }
+  }
+
+  private createLegend(): HTMLElement {
+    const legend = document.createElement("div");
+    legend.className = "pins-legend";
+    const items: Array<[string, string]> = [
+      ["HIGH", "legend-high"],
+      ["LOW", "legend-low"],
+      ["unknown", "legend-unknown"],
+      ["power", "legend-power"],
+      ["GND", "legend-ground"],
+      ["RST", "legend-reset"],
+    ];
+    for (const [label, cls] of items) {
+      const item = document.createElement("span");
+      item.className = "pins-legend-item";
+      const swatch = document.createElement("span");
+      swatch.className = `pins-legend-swatch ${cls}`;
+      item.appendChild(swatch);
+      item.appendChild(document.createTextNode(label));
+      legend.appendChild(item);
+    }
+    return legend;
   }
 
   private createToolbarButton(label: string, onClick: () => void): HTMLButtonElement {
