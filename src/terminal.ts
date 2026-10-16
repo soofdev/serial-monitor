@@ -4,6 +4,8 @@ const MAX_LINES = 10_000;
 
 export class Terminal {
   private lines: LineEntry[] = [];
+  private pending: LineEntry[] = [];
+  private rafScheduled = false;
   private partialLine = "";
   private container: HTMLElement;
   private autoScroll = true;
@@ -50,7 +52,9 @@ export class Terminal {
     const now = Date.now();
     for (const part of parts) {
       const cleaned = part.replace(/\r$/, "");
-      this.lines.push({ text: cleaned, timestamp: now });
+      const entry: LineEntry = { text: cleaned, timestamp: now };
+      this.lines.push(entry);
+      this.pending.push(entry);
     }
 
     // Trim to MAX_LINES
@@ -58,17 +62,24 @@ export class Terminal {
       this.lines = this.lines.slice(this.lines.length - MAX_LINES);
     }
 
-    this.renderNewLines(parts.length);
+    // Cap pending too — if it exceeds MAX_LINES we'd repaint everything anyway.
+    if (this.pending.length > MAX_LINES) {
+      this.pending = this.pending.slice(this.pending.length - MAX_LINES);
+    }
+
+    this.scheduleRender();
   }
 
   clear(): void {
     this.lines = [];
+    this.pending = [];
     this.partialLine = "";
     this.container.textContent = "";
   }
 
   refresh(): void {
     this.container.textContent = "";
+    this.pending = [];
     const filtered = this.getFilteredLines();
     const fragment = document.createDocumentFragment();
     for (const line of filtered) {
@@ -93,13 +104,22 @@ export class Terminal {
     );
   }
 
-  private renderNewLines(count: number): void {
-    if (count === 0) return;
+  private scheduleRender(): void {
+    if (this.rafScheduled) return;
+    this.rafScheduled = true;
+    requestAnimationFrame(() => {
+      this.rafScheduled = false;
+      this.flushPending();
+    });
+  }
 
-    const newLines = this.lines.slice(-count);
+  private flushPending(): void {
+    if (this.pending.length === 0) return;
+    const batch = this.pending;
+    this.pending = [];
+
     const fragment = document.createDocumentFragment();
-
-    for (const line of newLines) {
+    for (const line of batch) {
       if (
         this._filterText &&
         !line.text.toLowerCase().includes(this._filterText)

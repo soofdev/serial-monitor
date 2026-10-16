@@ -1,6 +1,7 @@
 mod commands;
 mod flash;
 mod serial;
+mod sketch;
 mod state;
 
 use state::ConnectionManager;
@@ -24,6 +25,11 @@ pub fn run() {
             commands::parse_idf_project,
             commands::flash_idf_project,
             commands::detect_chip,
+            commands::detect_arduino_cli,
+            commands::compile_sketch,
+            commands::install_arduino_cli,
+            commands::install_esp32_core,
+            commands::upload_sketch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

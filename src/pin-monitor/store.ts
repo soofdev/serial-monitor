@@ -8,6 +8,7 @@ export interface PinInfo {
 }
 
 export type PinChangeListener = (changedPins: ReadonlySet<number>) => void;
+export type BoardChangeListener = (board: string | null) => void;
 
 export interface PinStoreOptions {
   // Minimum gap between listener notifications, in ms. 0 = synchronous (useful for tests).
@@ -21,6 +22,7 @@ const DEFAULT_FLUSH_INTERVAL_MS = 33;
 export class PinStore {
   private pins = new Map<number, PinInfo>();
   private listeners = new Set<PinChangeListener>();
+  private boardListeners = new Set<BoardChangeListener>();
   private dirty = new Set<number>();
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private board: string | null = null;
@@ -35,7 +37,10 @@ export class PinStore {
   apply(event: PinEvent): void {
     switch (event.kind) {
       case "hello":
-        this.board = event.board;
+        if (this.board !== event.board) {
+          this.board = event.board;
+          for (const l of this.boardListeners) l(this.board);
+        }
         return;
       case "mode":
         for (const { pin, mode } of event.pins) {
@@ -82,6 +87,11 @@ export class PinStore {
   subscribe(listener: PinChangeListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  subscribeBoard(listener: BoardChangeListener): () => void {
+    this.boardListeners.add(listener);
+    return () => this.boardListeners.delete(listener);
   }
 
   reset(): void {

@@ -142,6 +142,7 @@ export class BoardView {
     group.dataset.kind = pin.kind;
     if (pin.gpio !== null) group.dataset.gpio = String(pin.gpio);
     group.dataset.side = pin.side;
+    if (pin.capabilities?.includes("flash")) group.classList.add("pin-warn-flash");
 
     const pad = el("circle", {
       class: "pin-pad",

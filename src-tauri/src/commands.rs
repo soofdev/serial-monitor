@@ -1,5 +1,6 @@
 use crate::flash::{self, ChipInfo, FlashProgress, IdfProjectInfo, MultiSegmentProgress, TauriProgressCallbacks};
 use crate::serial::{self, PortInfo, SerialData};
+use crate::sketch::{self, ArduinoCliStatus, CompileLog, CompileResult, InstallProgress, InstallResult};
 use crate::state::{ConnectionManager, SerialConnection};
 use std::sync::{Arc, Mutex};
 use tauri::ipc::Channel;
@@ -236,4 +237,57 @@ pub async fn detect_chip(port: String) -> Result<ChipInfo, String> {
     tokio::task::spawn_blocking(move || flash::detect_chip_info(&port))
         .await
         .map_err(|e| format!("Detection task panicked: {}", e))?
+}
+
+#[tauri::command]
+pub async fn detect_arduino_cli(app: tauri::AppHandle) -> ArduinoCliStatus {
+    sketch::detect_arduino_cli(app).await
+}
+
+#[tauri::command]
+pub async fn compile_sketch(
+    app: tauri::AppHandle,
+    source: String,
+    fqbn: String,
+    on_log: Channel<CompileLog>,
+) -> Result<CompileResult, String> {
+    sketch::compile_sketch(app, source, fqbn, on_log).await
+}
+
+#[tauri::command]
+pub async fn install_arduino_cli(
+    app: tauri::AppHandle,
+    on_progress: Channel<InstallProgress>,
+) -> Result<InstallResult, String> {
+    sketch::install_arduino_cli(app, on_progress).await
+}
+
+#[tauri::command]
+pub async fn install_esp32_core(
+    app: tauri::AppHandle,
+    on_log: Channel<CompileLog>,
+) -> Result<(), String> {
+    sketch::install_esp32_core(app, on_log).await
+}
+
+#[tauri::command]
+pub async fn upload_sketch(
+    app: tauri::AppHandle,
+    port: String,
+    fqbn: String,
+    sketch_root: String,
+    on_log: Channel<CompileLog>,
+    manager: State<'_, Arc<ConnectionManager>>,
+) -> Result<(), String> {
+    // arduino-cli upload needs exclusive access to the port — tear the
+    // active read loop down first and let the OS release the handle.
+    {
+        let mut conns = manager.connections.lock().map_err(|e| e.to_string())?;
+        if let Some(conn) = conns.remove(&port) {
+            let _ = conn.shutdown_tx.try_send(());
+            drop(conn);
+        }
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    sketch::upload_sketch(app, port, fqbn, sketch_root, on_log).await
 }

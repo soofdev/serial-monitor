@@ -62,6 +62,8 @@ const right: PinDescriptor[] = [
 export const ESP32_S3_DEVKITC_1: BoardLayout = {
   id: "esp32-s3-devkitc-1",
   name: "ESP32-S3-DevKitC-1",
+  aliases: ["esp32-s3-devkitc-1", "esp32-s3-devkitc", "esp32-s3", "esp32s3"],
+  chips: ["ESP32-S3"],
   usbSide: "top",
   rowsPerSide: 22,
   pins: [...left, ...right],

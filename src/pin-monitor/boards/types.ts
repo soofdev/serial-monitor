@@ -4,11 +4,14 @@ export type PinCapability =
   | "digital"
   | "adc"
   | "touch"
+  | "dac"
   | "strapping"
   | "usb"
   | "uart"
   | "boot"
-  | "led";
+  | "led"
+  | "flash"
+  | "input_only";
 
 export type PinKind = "gpio" | "power" | "ground" | "reset";
 
@@ -29,6 +32,11 @@ export interface PinDescriptor {
 export interface BoardLayout {
   id: string;
   name: string;
+  // Other strings the firmware/chip may report that should match this board.
+  // First entry should be the canonical id.
+  aliases?: string[];
+  // Chip family names (as returned by detect_chip / espflash) this board belongs to.
+  chips?: string[];
   usbSide: "top" | "bottom";
   rowsPerSide: number;
   pins: PinDescriptor[];

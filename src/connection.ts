@@ -3,12 +3,21 @@ import { Terminal } from "./terminal";
 import { CommandInput } from "./command-input";
 import { FilterInput } from "./filter";
 import { FlashPanel } from "./flash-panel";
+import { SketchPanel } from "./sketch-panel";
 import { connectPort, disconnectPort, sendToPort, startLog, stopLog } from "./serial-api";
+import { uploadSketch } from "./sketch-api";
 import type { SerialData, SerialStatus } from "./types";
 import { PinStore } from "./pin-monitor/store";
 import { PinInterceptor } from "./pin-monitor/interceptor";
 import { BoardView } from "./pin-monitor/board-view";
-import { BOARDS, DEFAULT_BOARD, findBoard } from "./pin-monitor/boards";
+import {
+  BOARDS,
+  DEFAULT_BOARD,
+  findBoard,
+  findBoardByAlias,
+  guessBoardByPortName,
+  type BoardLayout,
+} from "./pin-monitor/boards";
 
 export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
 
@@ -27,6 +36,8 @@ export class Connection {
   private logBtn: HTMLButtonElement;
   private flashBtn: HTMLButtonElement;
   private pinsBtn: HTMLButtonElement;
+  private sketchBtn: HTMLButtonElement;
+  private sketchPanel: SketchPanel;
   private flashPanel: FlashPanel;
   private clearBtn: HTMLButtonElement;
 
@@ -34,7 +45,10 @@ export class Connection {
   private pinInterceptor: PinInterceptor;
   private pinsPanel: HTMLElement;
   private boardContainer!: HTMLElement;
+  private boardSelect!: HTMLSelectElement;
   private boardView: BoardView | null = null;
+  private activeBoard: BoardLayout = DEFAULT_BOARD;
+  private userPickedBoard = false;
   private showProtocolCheckbox: HTMLInputElement;
   private pinsOpen = false;
 
@@ -76,6 +90,9 @@ export class Connection {
     this.flashBtn = this.createToolbarButton("Flash", () => this.openFlashPanel());
     toolbar.appendChild(this.flashBtn);
 
+    this.sketchBtn = this.createToolbarButton("Sketch", () => this.openSketchPanel());
+    toolbar.appendChild(this.sketchBtn);
+
     this.pinsBtn = this.createToolbarButton("Pins", () => this.togglePins());
     toolbar.appendChild(this.pinsBtn);
 
@@ -86,6 +103,12 @@ export class Connection {
     this.flashPanel.onFlashComplete = () => this.onFlashDone();
     this.flashPanel.onClose = () => this.onFlashPanelClosed();
     this.panel.appendChild(this.flashPanel.overlay);
+
+    // Sketch editor overlay
+    this.sketchPanel = new SketchPanel();
+    this.sketchPanel.onClose = () => this.onSketchPanelClosed();
+    this.sketchPanel.onCompileAndFlash = (result, fqbn) => this.flashCompiledSketch(result, fqbn);
+    this.panel.appendChild(this.sketchPanel.overlay);
 
     // Main area: terminal on left, pins panel on right (when toggled)
     const mainArea = document.createElement("div");
@@ -107,20 +130,24 @@ export class Connection {
     const pinsHeader = document.createElement("div");
     pinsHeader.className = "pins-header";
 
-    const boardSelect = document.createElement("select");
-    boardSelect.className = "pins-board-select";
+    this.activeBoard = guessBoardByPortName(port) ?? DEFAULT_BOARD;
+    this.boardSelect = document.createElement("select");
+    this.boardSelect.className = "pins-board-select";
     for (const b of BOARDS) {
       const opt = document.createElement("option");
       opt.value = b.id;
       opt.textContent = b.name;
-      boardSelect.appendChild(opt);
+      this.boardSelect.appendChild(opt);
     }
-    boardSelect.value = DEFAULT_BOARD.id;
-    boardSelect.addEventListener("change", () => {
-      const next = findBoard(boardSelect.value);
-      if (next && this.boardView) this.boardView.setBoard(next);
+    this.boardSelect.value = this.activeBoard.id;
+    this.boardSelect.addEventListener("change", () => {
+      const next = findBoard(this.boardSelect.value);
+      if (next) {
+        this.userPickedBoard = true;
+        this.setActiveBoard(next);
+      }
     });
-    pinsHeader.appendChild(boardSelect);
+    pinsHeader.appendChild(this.boardSelect);
 
     const protocolLabel = document.createElement("label");
     protocolLabel.className = "pins-protocol-toggle";
@@ -144,6 +171,15 @@ export class Connection {
 
     mainArea.appendChild(this.pinsPanel);
     this.panel.appendChild(mainArea);
+
+    // Auto-switch board when firmware sends a recognised $HELLO.
+    this.pinStore.subscribeBoard((boardId) => {
+      if (this.userPickedBoard || !boardId) return;
+      const match = findBoardByAlias(boardId);
+      if (match && match.id !== this.activeBoard.id) {
+        this.setActiveBoard(match);
+      }
+    });
 
     // Bottom bar
     const bottomBar = document.createElement("div");
@@ -203,8 +239,17 @@ export class Connection {
     this.pinsBtn.classList.toggle("active", this.pinsOpen);
     this.pinsPanel.style.display = this.pinsOpen ? "flex" : "none";
     if (this.pinsOpen && !this.boardView) {
-      this.boardView = new BoardView(this.boardContainer, this.pinStore, DEFAULT_BOARD);
+      this.boardView = new BoardView(this.boardContainer, this.pinStore, this.activeBoard);
     }
+  }
+
+  private setActiveBoard(board: BoardLayout): void {
+    if (board.id === this.activeBoard.id) return;
+    this.activeBoard = board;
+    if (this.boardSelect.value !== board.id) {
+      this.boardSelect.value = board.id;
+    }
+    this.boardView?.setBoard(board);
   }
 
   async connect(): Promise<void> {
@@ -368,9 +413,36 @@ export class Connection {
     this.flashPanel.show(this.port, this.baudRate);
   }
 
+  private openSketchPanel(): void {
+    // Pause auto-reconnect — a compile-and-flash cycle will tear down the port.
+    this.reconnectEnabled = false;
+    this.clearReconnectTimer();
+    this.sketchPanel.show(this.port);
+  }
+
   private async onFlashDone(): Promise<void> {
     this.terminal.appendData("\r\n[Flash complete — reconnecting...]\r\n");
     this.flashPanel.hide();
+    await this.reconnectAfterFlash();
+  }
+
+  private onFlashPanelClosed(): void {
+    // Re-enable auto-reconnect when panel is closed without flashing
+    this.reconnectEnabled = true;
+    // If we're disconnected (flash happened but user closed before reconnect), try reconnecting
+    if (this._status === "disconnected" || this._status === "reconnecting") {
+      this.startReconnect();
+    }
+  }
+
+  private onSketchPanelClosed(): void {
+    this.reconnectEnabled = true;
+    if (this._status === "disconnected" || this._status === "reconnecting") {
+      this.startReconnect();
+    }
+  }
+
+  private async reconnectAfterFlash(): Promise<void> {
     this.reconnectEnabled = true;
     try {
       await connectPort(this.port, this.baudRate, this.handleIncomingData);
@@ -387,13 +459,22 @@ export class Connection {
     }
   }
 
-  private onFlashPanelClosed(): void {
-    // Re-enable auto-reconnect when panel is closed without flashing
-    this.reconnectEnabled = true;
-    // If we're disconnected (flash happened but user closed before reconnect), try reconnecting
-    if (this._status === "disconnected" || this._status === "reconnecting") {
-      this.startReconnect();
+  private async flashCompiledSketch(
+    result: { sketch_dir: string | null },
+    fqbn: string
+  ): Promise<void> {
+    if (!result.sketch_dir) {
+      throw new Error("No sketch dir from compile");
     }
+    this.sketchPanel.appendLog({ stream: "stdout", line: "Uploading..." });
+    await uploadSketch(this.port, fqbn, result.sketch_dir, (entry) =>
+      this.sketchPanel.appendLog(entry)
+    );
+    this.sketchPanel.appendLog({
+      stream: "stdout",
+      line: "Upload complete — reconnecting...",
+    });
+    await this.reconnectAfterFlash();
   }
 
   private createLegend(): HTMLElement {

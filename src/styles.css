@@ -785,6 +785,176 @@ kbd {
   accent-color: var(--accent);
 }
 
+/* === Sketch Editor === */
+.sketch-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(17, 17, 27, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.sketch-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  width: 880px;
+  max-width: 95%;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sketch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sketch-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sketch-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.sketch-close-btn:hover { color: var(--text-primary); }
+
+.sketch-status-strip {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.sketch-status-strip.sketch-status-ok { color: var(--green); border-color: #2e5a3f; }
+.sketch-status-strip.sketch-status-warn { color: var(--yellow); border-color: #5a4a1f; }
+.sketch-status-strip.sketch-status-error { color: var(--red); border-color: #5a2e3a; }
+.sketch-status-hint {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.sketch-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sketch-status-row .sketch-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+}
+
+.sketch-log-progress {
+  color: var(--text-secondary);
+}
+
+.sketch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sketch-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.sketch-fqbn-select {
+  flex: 1;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.sketch-editor {
+  flex: 1 1 auto;
+  min-height: 200px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  tab-size: 2;
+}
+.sketch-editor:focus { border-color: var(--accent); }
+
+.sketch-log {
+  flex: 0 0 180px;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.sketch-log-line { padding: 0; }
+.sketch-log-stdout { color: var(--text-primary); }
+.sketch-log-stderr { color: var(--red); }
+
+.sketch-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sketch-status-line { font-size: 11px; color: var(--text-muted); }
+.sketch-status-line-info { color: var(--text-secondary); }
+.sketch-status-line-ok { color: var(--green); }
+.sketch-status-line-error { color: var(--red); }
+
+.sketch-btn-group { display: flex; gap: 8px; }
+
+.sketch-btn {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.sketch-btn:hover:not(:disabled) { background: var(--bg-hover); }
+.sketch-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.sketch-btn-primary {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+.sketch-btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+
 /* === Pin Monitor: layout === */
 .connection-main {
   display: flex;
@@ -999,6 +1169,15 @@ kbd {
 .pin-kind-gpio.pin-pwm .pin-pad {
   fill: var(--yellow);
   stroke: var(--yellow);
+}
+
+/* Flash pins on classic ESP32 (GPIO 6–11) — wired to internal SPI flash, do not use. */
+.pin-warn-flash .pin-pad {
+  stroke: var(--red);
+  stroke-dasharray: 2 2;
+}
+.pin-warn-flash .pin-label {
+  color: var(--red);
 }
 
 .board-tooltip {
